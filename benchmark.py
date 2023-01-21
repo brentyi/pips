@@ -49,6 +49,9 @@ class BenchmarkConfig:
     iters: int = 6
     num_forward_trials: int = 20
 
+    compile: bool = False
+    """Set to enable torch.compile(). Requires PyTorch 2.0."""
+
 
 def benchmark(config: BenchmarkConfig, stride: int = 4, iters: int = 6) -> None:
     print(config)
@@ -63,6 +66,16 @@ def benchmark(config: BenchmarkConfig, stride: int = 4, iters: int = 6) -> None:
         (config.b, model.S, 3, config.h, config.w), dtype=torch.uint8
     ).cuda()
     xys = torch.zeros((config.b, config.n, 2), dtype=torch.float32).cuda()
+
+    # Compile model.
+    if config.compile:
+        model = torch.compile(model)
+
+        print("Compiling...")
+        with torch.inference_mode(), Timer() as t:
+            model.forward(xys=xys, rgbs=rgbs, iters=iters)
+            torch.cuda.synchronize()
+        print(f"\t{t.elapsed}")
 
     # Run network!
     print("Forward pass...")
